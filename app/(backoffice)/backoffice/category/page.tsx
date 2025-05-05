@@ -9,6 +9,7 @@ import { ResultModel } from "@/types/common/ResultModel";
 import { PaginationView } from "@/types/paginations/PaginationView";
 import Link from "next/link";
 import { Pager } from "@/types/paginations/Pager";
+import Swal from "sweetalert2";
 
 async function fetchCategorys(payload: {
   Status?: number | undefined;
@@ -58,25 +59,25 @@ export default function CategoryPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(searchtxt); // เพิ่ม state สำหรับ input
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const payload = { Status: undefined, page, pageSize, searchtxt };
-      const result = await fetchCategorys(payload);
+  const load = async () => {
+    setLoading(true);
+    const payload = { Status: undefined, page, pageSize, searchtxt };
+    const result = await fetchCategorys(payload);
 
-      if (result.Status && result.Result) {
-        setCategories(result.Result.Items ?? []);
-        setPager(result.Result.Pager);
-        setErrorMessage(null);
-      } else {
-        setErrorMessage(result.errorMessage || "Unknown error");
-        setCategories([]);
-        setPager(null);
-      }
-
-      setLoading(false);
+    if (result.Status && result.Result) {
+      setCategories(result.Result.Items ?? []);
+      setPager(result.Result.Pager);
+      setErrorMessage(null);
+    } else {
+      setErrorMessage(result.errorMessage || "Unknown error");
+      setCategories([]);
+      setPager(null);
     }
 
+    setLoading(false);
+  };
+
+  useEffect(() => {
     load();
   }, [page, pageSize, searchtxt]);
 
@@ -90,6 +91,41 @@ export default function CategoryPage() {
       params.delete("searchtxt");
     }
     router.push(`/backoffice/category?${params.toString()}`); // อัปเดต URL โดยไม่รีเฟรช
+  };
+
+  const handleDelete = async (categoryId: string) => {
+    const result = await Swal.fire({
+      title: "คุณแน่ใจหรือไม่?",
+      text: "การลบนี้ไม่สามารถย้อนคืนได้!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "ลบ",
+      cancelButtonText: "ยกเลิก",
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_THA_API_URL}/api/v1/Sell/RemoveCategory/${categoryId}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error("ลบไม่สำเร็จ");
+        }
+
+        Swal.fire("ลบแล้ว!", "หมวดหมู่ถูกลบเรียบร้อย", "success");
+
+        // Reload page (หรือ refetch ข้อมูลใหม่)
+        await load();
+      } catch (err) {
+        Swal.fire("ผิดพลาด!", "ไม่สามารถลบข้อมูลได้", "error");
+      }
+    }
   };
 
   return (
@@ -188,6 +224,12 @@ export default function CategoryPage() {
                     >
                       แก้ไข
                     </Link>
+                    <button
+                      onClick={() => handleDelete(item.CategoryId)}
+                      className="text-red-600 hover:underline"
+                    >
+                      ลบ
+                    </button>
                   </td>
                 </tr>
               ))
