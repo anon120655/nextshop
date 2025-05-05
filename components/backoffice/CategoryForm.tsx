@@ -31,7 +31,6 @@ export default function CategoryForm({ initialData, mode }: CategoryFormProps) {
 
   // useEffect เพื่อ sync formData กับ initialData
   useEffect(() => {
-    //console.log("useEffect triggered with initialData:", initialData);
     if (initialData) {
       setFormData({
         Status: initialData.Status?.toString() || STRING_EMPTY,
