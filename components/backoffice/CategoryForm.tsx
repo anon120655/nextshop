@@ -7,6 +7,7 @@ import { Category, CategorySchema } from "@/types/categorys/category";
 import { showErrorToast } from "../common/ToastNotification";
 import { GUID_EMPTY, STRING_EMPTY } from "@/utils/constants";
 import { LoaderCircle } from "lucide-react";
+import { getCookie } from "@/utils/cookies";
 
 interface CategoryFormProps {
   initialData?: Category;
@@ -119,17 +120,22 @@ export default function CategoryForm({ initialData, mode }: CategoryFormProps) {
           : `api/v1/Sell/UpdateCategory`;
       const method = mode === "create" ? "POST" : "PUT";
 
-      const dataToSend = {
+      const payload = {
         ...formData,
         Status: formData.Status ? Number(formData.Status) : null,
       };
+      const token = getCookie("token");
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_THA_API_URL}/${path}`,
         {
           method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dataToSend),
+          headers: {
+            "Content-Type": "application/json",
+            // Add Authorization header with Bearer token
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify(payload),
         }
       );
 
