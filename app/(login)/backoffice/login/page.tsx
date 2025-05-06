@@ -1,85 +1,129 @@
 "use client";
 
 import { AuthResponse } from "@/types/auth/AuthResponse";
-import { LoginForm } from "@/types/auth/LoginForm";
+import { LoginForm, LoginFormSchema } from "@/types/auth/LoginForm";
+import { STRING_EMPTY } from "@/utils/constants";
 import { setCookie } from "@/utils/cookies";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useActionState, useState } from "react";
+
+// Server Action สำหรับจัดการการล็อกอิน
+async function loginAction(
+  prevState: {
+    error: string | null;
+    errors?: Partial<Record<keyof LoginForm, string>>;
+    success: boolean;
+  },
+  formData: FormData
+): Promise<{
+  error: string | null;
+  errors?: Partial<Record<keyof LoginForm, string>>;
+  success: boolean;
+}> {
+  const data: LoginForm = {
+    username: formData.get("username") as string,
+    password: formData.get("password") as string,
+  };
+
+  // ตรวจสอบข้อมูลด้วย Zod
+  const validation = LoginFormSchema.safeParse(data);
+  if (!validation.success) {
+    const errorMap = validation.error.issues.reduce((acc, issue) => {
+      const field = issue.path[0] as keyof LoginForm;
+      acc[field] = issue.message;
+      return acc;
+    }, {} as Partial<Record<keyof LoginForm, string>>);
+    return { error: null, errors: errorMap, success: false };
+  }
+
+  try {
+    const payload = {
+      Username: data.username,
+      Password: data.password,
+      IPAddress: "",
+      LoginBy: 4,
+    };
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_THA_API_URL}/api/v1/Authorize/Authenticate`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result: AuthResponse = await response.json();
+
+    if (result.Status && result.Result) {
+      // เก็บ token ใน cookie
+      setCookie("token", result.Result.Token, 168);
+      // เก็บ user data ใน localStorage
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          userId: result.Result.UserId,
+          fullName: result.Result.FullName,
+          firstName: result.Result.FirstName,
+          lastName: result.Result.LastName,
+          roleId: result.Result.RoleId,
+          roleName: result.Result.RoleName,
+        })
+      );
+      return { error: null, success: true };
+    } else {
+      return {
+        error: result.errorMessage || "Authentication failed",
+        success: false,
+      };
+    }
+  } catch (err) {
+    return { error: "An error occurred during login", success: false };
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const [formData, setFormData] = useState<LoginForm>({
-    username: "",
-    password: "",
+    username: STRING_EMPTY,
+    password: STRING_EMPTY,
   });
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
+  const [clientErrors, setClientErrors] = useState<
+    Partial<Record<keyof LoginForm, string>>
+  >({});
+
+  const [state, formAction, isPending] = useActionState(loginAction, {
+    error: null,
+    errors: {},
+    success: false,
+  });
+
+  // ฟังก์ชันจัดการการเปลี่ยนแปลง input และเคลียร์ข้อผิดพลาด
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    //console.log("handleInputChange.....", e.target.name, e.target.value);
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      const payload = {
-        Username: formData.username,
-        Password: formData.password,
-        IPAddress: "",
-        LoginBy: 4,
-      };
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_THA_API_URL}/api/v1/Authorize/Authenticate`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-          //credentials: "include", // Include cookies in request
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: AuthResponse = await response.json();
-
-      if (data.Status && data.Result) {
-        //*** เก็บ token ใน cookie เพื่อเรียกใช้ได้ใน middleware
-        //*** เก็บ user data ใน localStorage เพื่อเก็บได้เยอะและ Client Component เข้าถึงง่าย
-
-        setCookie("token", data.Result.Token, 168); //168 ชั่วโมง = 7 วัน
-        // Store user data in localStorage
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            userId: data.Result.UserId,
-            fullName: data.Result.FullName,
-            firstName: data.Result.FirstName,
-            lastName: data.Result.LastName,
-            roleId: data.Result.RoleId,
-            roleName: data.Result.RoleName,
-          })
-        );
-
-        // Redirect to dashboard or home page
-        router.push("/backoffice");
-      } else {
-        setError(data.errorMessage || "Authentication failed");
-      }
-    } catch (err) {
-      setError("An error occurred during login");
-    } finally {
-      setIsLoading(false);
+    // เคลียร์ข้อผิดพลาดของฟิลด์ที่กำลังแก้ไขทั้งใน clientErrors และ state.errors
+    setClientErrors((prev) => ({ ...prev, [name]: undefined }));
+    if (state.errors?.[name as keyof LoginForm]) {
+      state.errors = { ...state.errors, [name]: undefined };
     }
   };
+
+  // เปลี่ยนเส้นทางเมื่อล็อกอินสำเร็จ
+  if (state.success) {
+    router.push("/backoffice");
+  }
+
+  // รวมข้อผิดพลาดจาก state.errors และ clientErrors
+  const errors = { ...clientErrors, ...state.errors };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -88,19 +132,19 @@ export default function LoginPage() {
           Backoffice Login
         </h2>
 
-        {error && (
+        {state.error && (
           <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-            {error}
+            {state.error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form action={formAction}>
           <div className="mb-4">
             <label
               htmlFor="username"
               className="block text-sm font-medium text-gray-700"
             >
-              Username
+              ชื่อผู้ใช้
             </label>
             <input
               type="text"
@@ -109,8 +153,10 @@ export default function LoginPage() {
               value={formData.username}
               onChange={handleInputChange}
               className="mt-1 p-2 w-full border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
             />
+            {errors.username && (
+              <p className="mt-1 text-sm text-red-600">{errors.username}</p>
+            )}
           </div>
 
           <div className="mb-6">
@@ -118,7 +164,7 @@ export default function LoginPage() {
               htmlFor="password"
               className="block text-sm font-medium text-gray-700"
             >
-              Password
+              รหัสผ่าน
             </label>
             <input
               type="password"
@@ -127,20 +173,22 @@ export default function LoginPage() {
               value={formData.password}
               onChange={handleInputChange}
               className="mt-1 p-2 w-full border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
             />
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isPending}
             className={`w-full p-2 rounded-md text-white ${
-              isLoading
+              isPending
                 ? "bg-blue-300 cursor-not-allowed"
                 : "bg-blue-500 hover:bg-blue-600"
             }`}
           >
-            {isLoading ? "Logging in..." : "Login"}
+            {isPending ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
           </button>
         </form>
       </div>

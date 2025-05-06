@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { z } from "zod";
 import { Category, CategorySchema } from "@/types/categorys/category";
 import { showErrorToast } from "../common/ToastNotification";
 import { GUID_EMPTY, STRING_EMPTY } from "@/utils/constants";
@@ -26,6 +25,7 @@ export default function CategoryForm({ initialData, mode }: CategoryFormProps) {
     Name: initialData?.Name || STRING_EMPTY,
     Description: initialData?.Description || STRING_EMPTY,
   });
+
   const [errors, setErrors] = useState<Partial<Record<keyof Category, string>>>(
     {}
   );
