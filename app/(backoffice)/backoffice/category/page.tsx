@@ -93,9 +93,9 @@ export default function CategoryPage() {
     router.push(`/backoffice/category?${params.toString()}`); // อัปเดต URL โดยไม่รีเฟรช
   };
 
-  const handleDelete = async (categoryId: string) => {
+  const handleDelete = async (categoryId: string, name: string) => {
     const result = await Swal.fire({
-      title: "คุณแน่ใจหรือไม่?",
+      title: `คุณต้องการลบหมวดหมู่ \n <span class='text-blue-400'>${name}</span> \nใช่หรือไม่?`,
       text: "การลบนี้ไม่สามารถย้อนคืนได้!",
       icon: "warning",
       showCancelButton: true,
@@ -225,7 +225,7 @@ export default function CategoryPage() {
                       แก้ไข
                     </Link>
                     <button
-                      onClick={() => handleDelete(item.CategoryId)}
+                      onClick={() => handleDelete(item.CategoryId, item.Name)}
                       className="text-red-600 hover:underline"
                     >
                       ลบ
