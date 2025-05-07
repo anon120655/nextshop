@@ -6,10 +6,6 @@ import ErrorHandler from "@/components/common/ErrorHandlerProps";
 import Link from "next/link";
 import LoadingComponent from "@/components/common/LoadingComponent";
 
-interface EditCategoryPageProps {
-  id: string;
-}
-
 async function fetchCategory(id: string) {
   //await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -37,8 +33,10 @@ async function fetchCategory(id: string) {
 export default async function EditCategoryPage({
   params,
 }: {
-  params: EditCategoryPageProps;
+  params: { id: string };
 }) {
+  //const { id } = params;
+
   const { id } = await Promise.resolve(params);
 
   return (

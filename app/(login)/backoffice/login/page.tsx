@@ -5,7 +5,7 @@ import { LoginForm, LoginFormSchema } from "@/types/auth/LoginForm";
 import { STRING_EMPTY } from "@/utils/constants";
 import { setCookie } from "@/utils/cookies";
 import { useRouter } from "next/navigation";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect } from "react";
 
 // Server Action สำหรับจัดการการล็อกอิน
 async function loginAction(
@@ -105,6 +105,13 @@ export default function LoginPage() {
     success: false,
   });
 
+  // ใช้ useEffect เพื่อจัดการ navigation หลังจาก render เสร็จแล้ว
+  useEffect(() => {
+    if (state.success) {
+      router.push("/backoffice");
+    }
+  }, [state.success, router]);
+
   // ฟังก์ชันจัดการการเปลี่ยนแปลง input และเคลียร์ข้อผิดพลาด
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     //console.log("handleInputChange.....", e.target.name, e.target.value);
@@ -116,11 +123,6 @@ export default function LoginPage() {
       state.errors = { ...state.errors, [name]: undefined };
     }
   };
-
-  // เปลี่ยนเส้นทางเมื่อล็อกอินสำเร็จ
-  if (state.success) {
-    router.push("/backoffice");
-  }
 
   // รวมข้อผิดพลาดจาก state.errors และ clientErrors
   const errors = { ...clientErrors, ...state.errors };
