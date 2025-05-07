@@ -84,7 +84,7 @@ async function loginAction(
       };
     }
   } catch (err) {
-    return { error: "An error occurred during login", success: false };
+    return { error: `An error occurred during login ${err}`, success: false };
   }
 }
 

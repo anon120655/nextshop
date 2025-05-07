@@ -37,11 +37,11 @@ async function fetchCategorys(payload: {
 
     const data: ResultModel<PaginationView<Category[]>> = await response.json();
     return data;
-  } catch (error) {
+  } catch (_) {
     return {
       Status: false,
       errorCheck: true,
-      errorMessage: "Failed to fetch",
+      errorMessage: `Failed to fetch`,
     };
   }
 }

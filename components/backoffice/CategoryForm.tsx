@@ -146,7 +146,7 @@ export default function CategoryForm({ initialData, mode }: CategoryFormProps) {
         showErrorToast({ errorMessages: "ไม่สามารถส่งข้อมูลได้" });
       }
     } catch (error) {
-      showErrorToast({ errorMessages: "เกิดข้อผิดพลาดในการส่งข้อมูล" });
+      showErrorToast({ errorMessages: "เกิดข้อผิดพลาดในการส่งข้อมูล" + error });
     } finally {
       setIsSubmitting(false);
     }

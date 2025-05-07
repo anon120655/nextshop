@@ -36,7 +36,7 @@ async function fetchProducts(payload: {
 
     const data: ResultModel<PaginationView<Product[]>> = await response.json();
     return data;
-  } catch (error) {
+  } catch (_) {
     return {
       Status: false,
       errorCheck: true,

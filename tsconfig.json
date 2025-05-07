@@ -13,6 +13,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "noUnusedParameters": false, //อนุญาตให้มีพารามิเตอร์ในฟังก์ชันหรือบล็อก catch ที่ไม่ได้ถูกใช้งาน โดยไม่แสดง error หรือ warning
     "plugins": [
       {
         "name": "next"

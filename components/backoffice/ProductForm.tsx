@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { showErrorToast } from "../common/ToastNotification";
 import { GUID_EMPTY, STRING_EMPTY } from "@/utils/constants";
@@ -8,7 +8,6 @@ import { LoaderCircle } from "lucide-react";
 import { Product } from "@/types/products/Product";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Bold, Italic, Underline } from "lucide-react"; // ถ้าอยากได้ icon สวย ๆ
 
 interface ProductFormProps {
   initialData?: Product | null;
@@ -17,7 +16,7 @@ interface ProductFormProps {
 
 export default function ProductForm({ initialData, mode }: ProductFormProps) {
   const router = useRouter();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null); // เพิ่ม state
+  // const [errorMessage, setErrorMessage] = useState<string | null>(null); // เพิ่ม state
 
   //console.log("initialData", initialData);
   const initialState: Product = {
@@ -31,7 +30,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
 
   //console.log("initialState", initialState);
   const submitAction = async (state: Product, formData: FormData) => {
-    setErrorMessage(null); // รีเซ็ต errorMessage ก่อนเริ่ม submit
+    //setErrorMessage(null); // รีเซ็ต errorMessage ก่อนเริ่ม submit
 
     const payload = {
       Status: Number(formData.get("Status")),
@@ -65,12 +64,12 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         router.refresh();
         return { ...payload }; // คืนข้อมูลใหม่หลัง success
       } else {
-        const errorText = await response.text();
+        //const errorText = await response.text();
         showErrorToast({ errorMessages: "Failed to submit." });
         return state; // ไม่เปลี่ยน state ถ้า error
       }
     } catch (error) {
-      showErrorToast({ errorMessages: "Error to submit." });
+      showErrorToast({ errorMessages: "Error to submit." + error });
       return state;
     }
   };

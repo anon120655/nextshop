@@ -39,7 +39,7 @@ async function fetchData(payload: {
 
     const data: ResultModel<PaginationView<Booking[]>> = await response.json();
     return data;
-  } catch (error) {
+  } catch (_) {
     return {
       Status: false,
       errorCheck: true,
@@ -98,11 +98,11 @@ const BookingPage = () => {
   // ฟังก์ชันจัดการการ Export
   const handleExport = async () => {
     try {
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
-        ...(searchtxt && { searchtxt }),
-      });
+      // const queryParams = new URLSearchParams({
+      //   page: page.toString(),
+      //   pageSize: pageSize.toString(),
+      //   ...(searchtxt && { searchtxt }),
+      // });
 
       //?${queryParams.toString()}
       const response = await fetch(
@@ -133,7 +133,7 @@ const BookingPage = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (error) {
+    } catch (_) {
       setErrorMessage("เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์ Excel");
     }
   };
