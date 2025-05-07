@@ -33,7 +33,8 @@ export default function Pagination({
     if (page < 1 || page > totalPages || page === currentPage) return;
     //router.push(`?${createQueryString(page)}`);
 
-    window.history.pushState(null, "", `?${createQueryString(page)}`); // อัปเดต URL โดยไม่นำทาง
+    //window.history.pushState(null, "", `?${createQueryString(page)}`); // อัปเดต URL โดยไม่นำทาง
+    router.push(`?${createQueryString(page)}`, { scroll: false }); // ใช้ router.push พร้อม scroll: false
   };
 
   // สร้าง array ของหมายเลขหน้า

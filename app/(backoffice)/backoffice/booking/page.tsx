@@ -3,11 +3,9 @@
 import ErrorHandler from "@/components/common/ErrorHandlerProps";
 import Pagination from "@/components/pagination/Pagination";
 import { Booking } from "@/types/Bookings/Booking";
-import { BookinginfoMain } from "@/types/Bookings/BookinginfoMain";
 import { ResultModel } from "@/types/common/ResultModel";
 import { Pager } from "@/types/paginations/Pager";
 import { PaginationView } from "@/types/paginations/PaginationView";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -52,7 +50,7 @@ async function fetchData(payload: {
 
 const BookingPage = () => {
   const searchParams = useSearchParams();
-  const router = useRouter(); // เพิ่ม useRouter
+  const router = useRouter();
   const page = parseInt(searchParams.get("page") || "1");
   const pageSize = parseInt(searchParams.get("pageSize") || "10");
   const searchtxt = searchParams.get("searchtxt") || "";
@@ -60,7 +58,7 @@ const BookingPage = () => {
   const [pager, setPager] = useState<Pager | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState(searchtxt); // เพิ่ม state สำหรับ input
+  const [searchInput, setSearchInput] = useState(searchtxt);
 
   const load = async () => {
     setLoading(true);
@@ -84,18 +82,60 @@ const BookingPage = () => {
     load();
   }, [page, pageSize, searchtxt]);
 
-  // ฟังก์ชันจัดการการค้นหา
   const handleSearch = () => {
     const params = new URLSearchParams(searchParams);
     if (searchInput) {
       params.set("searchtxt", searchInput);
-      params.set("page", "1"); // รีเซ็ตหน้าเมื่อค้นหาใหม่
+      params.set("page", "1");
     } else {
       params.delete("searchtxt");
     }
     router.replace(`/backoffice/booking?${params.toString()}`, {
       scroll: false,
-    }); // อัปเดต URL โดยไม่รีเฟรช
+    });
+  };
+
+  // ฟังก์ชันจัดการการ Export
+  const handleExport = async () => {
+    try {
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+        ...(searchtxt && { searchtxt }),
+      });
+
+      //?${queryParams.toString()}
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_THA_API_URL}/api/v1/Report/ExcelBookingSpace?page=1&pageSize=3000`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch Excel file");
+      }
+
+      // แปลง response เป็น base64
+      const arrayBuffer = await response.arrayBuffer();
+      const base64String = btoa(
+        new Uint8Array(arrayBuffer).reduce(
+          (data, byte) => data + String.fromCharCode(byte),
+          ""
+        )
+      );
+
+      // สร้างลิงก์สำหรับดาวน์โหลด
+      const link = document.createElement("a");
+      link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`;
+      link.download = `BookingReport_${new Date().toISOString()}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      setErrorMessage("เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์ Excel");
+    }
   };
 
   return (
@@ -117,11 +157,18 @@ const BookingPage = () => {
               className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
-              type="button" // เปลี่ยนเป็น type="button"
-              onClick={handleSearch} // เรียกฟังก์ชัน handleSearch
+              type="button"
+              onClick={handleSearch}
               className="ml-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
             >
               ค้นหา
+            </button>
+            <button
+              type="button"
+              onClick={handleExport} // เรียกฟังก์ชัน handleExport
+              className="ml-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            >
+              Export
             </button>
           </div>
         </div>
@@ -218,4 +265,5 @@ const BookingPage = () => {
     </div>
   );
 };
+
 export default BookingPage;
