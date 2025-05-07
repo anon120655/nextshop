@@ -93,10 +93,10 @@ export default function Sidebar() {
             </li>
             <li>
               <Link
-                href="/backoffice/orders"
+                href="/backoffice/booking"
                 className="block p-2 hover:bg-gray-700"
               >
-                คำสั่งซื้อ
+                Booking
               </Link>
             </li>
           </ul>

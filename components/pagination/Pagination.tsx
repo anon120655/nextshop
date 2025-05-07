@@ -31,7 +31,9 @@ export default function Pagination({
   // ฟังก์ชันสำหรับเปลี่ยนหน้า
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages || page === currentPage) return;
-    router.push(`?${createQueryString(page)}`);
+    //router.push(`?${createQueryString(page)}`);
+
+    window.history.pushState(null, "", `?${createQueryString(page)}`); // อัปเดต URL โดยไม่นำทาง
   };
 
   // สร้าง array ของหมายเลขหน้า
