@@ -6,10 +6,6 @@ import LoadingComponent from "@/components/common/LoadingComponent";
 import { Product } from "@/types/products/Product";
 import ProductForm from "@/components/backoffice/ProductForm";
 
-interface EditCategoryPageProps {
-  id: string;
-}
-
 async function fetchProduct(id: string) {
   //await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -37,9 +33,9 @@ async function fetchProduct(id: string) {
 export default async function EditProductPage({
   params,
 }: {
-  params: EditCategoryPageProps;
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = await Promise.resolve(params);
+  const { id } = await params;
 
   return (
     <Suspense fallback={<LoadingComponent />}>
