@@ -131,3 +131,8 @@
   min-height: 200px;
   outline: none;
 }
+
+.react-select__control {
+  height: 2.7rem; /* เทียบเท่า h-12 */
+  border-radius: 0.375rem !important; /* เทียบเท่า rounded-md */
+}

@@ -1,10 +1,10 @@
-//export interface Category {
-//  Status?: number | undefined;
+// export interface Category {
+//  Status?: string;
 //  CategoryId: string;
 //  CreateDate: Date;
 //  Name?: string;
 //  Description?: string;
-//}
+// }
 
 // types/categorys/category.ts
 import { z } from "zod";

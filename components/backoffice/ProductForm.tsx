@@ -8,7 +8,10 @@ import { LoaderCircle } from "lucide-react";
 import { Product, ProductSchema } from "@/types/products/Product";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { z } from "zod";
+import Select from "react-select";
+import { Category } from "@/types/categorys/category";
+import { ResultModel } from "@/types/common/ResultModel";
+import { PaginationView } from "@/types/paginations/PaginationView";
 
 interface ProductFormProps {
   initialData?: Product | null;
@@ -16,8 +19,11 @@ interface ProductFormProps {
 }
 
 export default function ProductForm({ initialData, mode }: ProductFormProps) {
+  //console.log("initialData", initialData);
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]); // State สำหรับเก็บหมวดหมู่
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false); // State สำหรับสถานะการโหลดหมวดหมู่
   const [formData, setFormData] = useState<Product>({
     Status: initialData?.Status?.toString() || STRING_EMPTY,
     ProductId: initialData?.ProductId || GUID_EMPTY,
@@ -25,16 +31,66 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
       ? new Date(initialData.CreateDate)
       : new Date(),
     Name: initialData?.Name || STRING_EMPTY,
+    CategoryId: initialData?.CategoryId || STRING_EMPTY,
     Description: initialData?.Description || STRING_EMPTY,
     VisibilityLevel: initialData?.VisibilityLevel?.toString() || STRING_EMPTY,
     ImageCoverUrl: initialData?.ImageCoverUrl || STRING_EMPTY,
     ImageCoverThumbnailUrl: initialData?.ImageCoverThumbnailUrl || STRING_EMPTY,
     UrlSlug: initialData?.UrlSlug || STRING_EMPTY,
     SellProductUploads: initialData?.SellProductUploads || [],
+    SellProductCategories: initialData?.SellProductCategories || [],
   });
   const [errors, setErrors] = useState<Partial<Record<keyof Product, string>>>(
     {}
   );
+
+  // ฟังก์ชันดึงข้อมูลหมวดหมู่
+  async function fetchCategories(payload: {
+    page: number;
+    pageSize: number;
+  }): Promise<void> {
+    try {
+      setIsLoadingCategories(true);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_THA_API_URL}/api/v1/Sell/GetCategoryList`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch: ${errorText}`);
+      }
+
+      const dataMap: ResultModel<PaginationView<Category[]>> =
+        await response.json();
+      if (!dataMap.Status || dataMap.errorCheck) {
+        throw new Error(
+          dataMap.errorMessage || "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ"
+        );
+      }
+      //console.log("dataMap=", dataMap);
+      setCategories(dataMap.Result.Items);
+    } catch (_) {
+      showErrorToast({
+        errorMessages: "เกิดข้อผิดพลาดในการดึงข้อมูลหมวดหมู่",
+      });
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  }
+
+  // ดึงข้อมูลหมวดหมู่เมื่อคอมโพเนนต์ mount
+  useEffect(() => {
+    const payload = { page: 1, pageSize: 100 };
+    fetchCategories(payload);
+  }, []);
 
   // ตั้งค่า Tiptap Editor
   const editor = useEditor({
@@ -63,6 +119,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
           ? new Date(initialData.CreateDate)
           : new Date(),
         Name: initialData.Name || STRING_EMPTY,
+        CategoryId: initialData.CategoryId || STRING_EMPTY,
         Description: initialData.Description || STRING_EMPTY,
         VisibilityLevel:
           initialData.VisibilityLevel?.toString() || STRING_EMPTY,
@@ -71,6 +128,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
           initialData.ImageCoverThumbnailUrl || STRING_EMPTY,
         UrlSlug: initialData.UrlSlug || STRING_EMPTY,
         SellProductUploads: initialData.SellProductUploads || [],
+        SellProductCategories: initialData.SellProductCategories || [],
       });
       setErrors({});
       // อัปเดตเนื้อหาใน Tiptap Editor
@@ -93,6 +151,19 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
       setErrors({});
     }
     return result;
+  };
+
+  // จัดการการเปลี่ยนแปลงใน React-Select
+  const handleCategoryChange = (selectedOption: any) => {
+    const updatedFormData = {
+      ...formData,
+      CategoryId: selectedOption ? selectedOption.value : STRING_EMPTY,
+      SellProductCategories: selectedOption
+        ? [{ CategoryId: selectedOption.value, Name: selectedOption.label }]
+        : [],
+    };
+    setFormData(updatedFormData);
+    validateForm(updatedFormData);
   };
 
   // จัดการการเปลี่ยนแปลงใน input
@@ -120,6 +191,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
           ? new Date(initialData.CreateDate)
           : new Date(),
         Name: initialData.Name || STRING_EMPTY,
+        CategoryId: initialData.CategoryId || STRING_EMPTY,
         Description: initialData.Description || STRING_EMPTY,
         VisibilityLevel:
           initialData.VisibilityLevel?.toString() || STRING_EMPTY,
@@ -128,6 +200,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
           initialData.ImageCoverThumbnailUrl || STRING_EMPTY,
         UrlSlug: initialData.UrlSlug || STRING_EMPTY,
         SellProductUploads: initialData.SellProductUploads || [],
+        SellProductCategories: initialData.SellProductCategories || [],
       });
       editor?.commands.setContent(initialData.Description || STRING_EMPTY);
     } else {
@@ -136,12 +209,14 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         ProductId: GUID_EMPTY,
         CreateDate: new Date(),
         Name: STRING_EMPTY,
+        CategoryId: STRING_EMPTY,
         Description: STRING_EMPTY,
         VisibilityLevel: STRING_EMPTY,
         ImageCoverUrl: STRING_EMPTY,
         ImageCoverThumbnailUrl: STRING_EMPTY,
         UrlSlug: STRING_EMPTY,
         SellProductUploads: [],
+        SellProductCategories: [],
       });
       editor?.commands.setContent(STRING_EMPTY);
     }
@@ -212,6 +287,19 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     }
   };
 
+  // แปลง categories เป็นรูปแบบที่ React-Select ใช้
+  const categoryOptions = categories.map((category) => ({
+    value: category.CategoryId,
+    label: category.Name || "ไม่มีชื่อ",
+  }));
+  // หาค่าเริ่มต้นจาก formData.SellProductCategories
+  const selectedCategory =
+    formData.SellProductCategories?.length > 0
+      ? categoryOptions.find(
+          (option) => option.value === formData.CategoryId
+        ) || null
+      : null;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
@@ -266,10 +354,30 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
           type="text"
           value={formData.Name}
           onChange={handleChange}
-          className="mt-1 block w-full rounded-md border border-gray-300 h-12 p-2"
+          className="mt-1 block w-full rounded-md border border-gray-300 p-2"
         />
         {errors.Name && (
           <p className="mt-1 text-sm text-red-600">{errors.Name}</p>
+        )}
+      </div>
+      <div>
+        <label htmlFor="CategoryId" className="block text-sm font-medium">
+          หมวดหมู่
+        </label>
+        <Select
+          id="CategoryId"
+          name="CategoryId"
+          options={categoryOptions}
+          value={selectedCategory}
+          onChange={handleCategoryChange}
+          isLoading={isLoadingCategories}
+          placeholder="เลือกหมวดหมู่"
+          className="mt-1  block w-full md:max-w-lg"
+          classNamePrefix="react-select"
+          isClearable
+        />
+        {errors.CategoryId && (
+          <p className="mt-1 text-sm text-red-600">{errors.CategoryId}</p>
         )}
       </div>
       <div>
@@ -337,7 +445,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
           name="VisibilityLevel"
           value={formData.VisibilityLevel}
           onChange={handleChange}
-          className="mt-1 block w-full md:max-w-lg px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          className="mt-1 block w-full md:max-w-lg px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 "
         >
           <option value="">เลือก</option>
           <option value="1">ทั้งหมด</option>

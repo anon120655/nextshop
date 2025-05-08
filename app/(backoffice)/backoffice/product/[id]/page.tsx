@@ -50,6 +50,12 @@ async function ProductContent({ id }: { id: string }) {
 
   try {
     initialData = await fetchProduct(id);
+    if (
+      initialData.SellProductCategories &&
+      initialData.SellProductCategories.length > 0
+    ) {
+      initialData.CategoryId = initialData.SellProductCategories[0].CategoryId;
+    }
   } catch (error) {
     errorMessage = (error as Error).message;
   }
