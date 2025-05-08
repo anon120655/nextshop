@@ -78,7 +78,7 @@ export default function CategoryForm({ initialData, mode }: CategoryFormProps) {
 
   // ฟังก์ชันรีเซ็ตฟอร์ม
   const handleReset = () => {
-    console.log("Reset button clicked, resetting formData");
+    //console.log("Reset button clicked, resetting formData");
     if (mode === "edit" && initialData) {
       // ในโหมดแก้ไข รีเซ็ตกลับไปเป็น initialData
       setFormData({

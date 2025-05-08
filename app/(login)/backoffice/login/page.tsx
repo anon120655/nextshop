@@ -114,7 +114,6 @@ export default function LoginPage() {
 
   // ฟังก์ชันจัดการการเปลี่ยนแปลง input และเคลียร์ข้อผิดพลาด
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    //console.log("handleInputChange.....", e.target.name, e.target.value);
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     // เคลียร์ข้อผิดพลาดของฟิลด์ที่กำลังแก้ไขทั้งใน clientErrors และ state.errors
