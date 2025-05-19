@@ -12,43 +12,58 @@ import Select from "react-select";
 import { Category } from "@/types/categorys/category";
 import { ResultModel } from "@/types/common/ResultModel";
 import { PaginationView } from "@/types/paginations/PaginationView";
+import { v4 as uuidv4 } from "uuid";
 
 interface ProductFormProps {
   initialData?: Product | null;
   mode: "create" | "edit";
 }
 
+interface UploadFormFilesResponse {
+  FileId: string;
+  FileUrl: string;
+  OriginalFileName: string;
+  PathFolder: string;
+}
+
 export default function ProductForm({ initialData, mode }: ProductFormProps) {
-  //console.log("initialData", initialData);
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]); // State สำหรับเก็บหมวดหมู่
-  const [isLoadingCategories, setIsLoadingCategories] = useState(false); // State สำหรับสถานะการโหลดหมวดหมู่
-  const [formData, setFormData] = useState<Product>({
-    Status: initialData?.Status?.toString() || STRING_EMPTY,
-    ProductId: initialData?.ProductId || GUID_EMPTY,
-    CreateDate: initialData?.CreateDate
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
+  const [formData, setFormData] = useState<Product>(() => {
+    const createDate = initialData?.CreateDate
       ? new Date(initialData.CreateDate)
-      : new Date(),
-    Name: initialData?.Name || STRING_EMPTY,
-    CategoryId: initialData?.CategoryId || STRING_EMPTY,
-    Description: initialData?.Description || STRING_EMPTY,
-    VisibilityLevel: initialData?.VisibilityLevel?.toString() || STRING_EMPTY,
-    ImageCoverUrl: initialData?.ImageCoverUrl || STRING_EMPTY,
-    ImageCoverThumbnailUrl: initialData?.ImageCoverThumbnailUrl || STRING_EMPTY,
-    UrlSlug: initialData?.UrlSlug || STRING_EMPTY,
-    SellProductUploads: initialData?.SellProductUploads || [],
-    SellProductCategories: initialData?.SellProductCategories || [],
+      : new Date(); // รับรองว่า CreateDate มีค่าเสมอ
+    return {
+      Status: initialData?.Status?.toString() || STRING_EMPTY,
+      ProductId: initialData?.ProductId || GUID_EMPTY,
+      CreateDate: createDate,
+      Name: initialData?.Name || STRING_EMPTY,
+      CategoryId: initialData?.CategoryId || STRING_EMPTY,
+      Description: initialData?.Description || STRING_EMPTY,
+      VisibilityLevel: initialData?.VisibilityLevel?.toString() || STRING_EMPTY,
+      ImageCoverUrl: initialData?.ImageCoverUrl || STRING_EMPTY,
+      ImageCoverThumbnailUrl:
+        initialData?.ImageCoverThumbnailUrl || STRING_EMPTY,
+      UrlSlug: initialData?.UrlSlug || STRING_EMPTY,
+      SellProductUploads: initialData?.SellProductUploads || [],
+      SellProductCategories: initialData?.SellProductCategories || [],
+    };
   });
   const [errors, setErrors] = useState<Partial<Record<keyof Product, string>>>(
     {}
   );
+  const [uploading, setUploading] = useState(false);
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
 
-  // ฟังก์ชันดึงข้อมูลหมวดหมู่
-  async function fetchCategories(payload: {
-    page: number;
-    pageSize: number;
-  }): Promise<void> {
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  async function fetchCategories(payload: { page: number; pageSize: number }) {
     try {
       setIsLoadingCategories(true);
       const response = await fetch(
@@ -75,7 +90,6 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
           dataMap.errorMessage || "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ"
         );
       }
-      //console.log("dataMap=", dataMap);
       setCategories(dataMap.Result.Items);
     } catch (_) {
       showErrorToast({
@@ -86,18 +100,15 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     }
   }
 
-  // ดึงข้อมูลหมวดหมู่เมื่อคอมโพเนนต์ mount
   useEffect(() => {
     const payload = { page: 1, pageSize: 100 };
     fetchCategories(payload);
   }, []);
 
-  // ตั้งค่า Tiptap Editor
   const editor = useEditor({
     extensions: [StarterKit],
     content: formData.Description,
     onUpdate: ({ editor }) => {
-      // อัปเดต Description ใน formData เมื่อเนื้อหาใน editor เปลี่ยน
       setFormData((prev) => ({
         ...prev,
         Description: editor.getHTML(),
@@ -109,15 +120,15 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     },
   });
 
-  // Sync initialData กับ formData เมื่อ initialData เปลี่ยน
   useEffect(() => {
     if (initialData) {
-      setFormData({
+      const createDate = initialData?.CreateDate
+        ? new Date(initialData.CreateDate)
+        : new Date(); // รับรองว่า CreateDate มีค่าเสมอ
+      const newFormData = {
         Status: initialData.Status?.toString() || STRING_EMPTY,
         ProductId: initialData.ProductId || GUID_EMPTY,
-        CreateDate: initialData.CreateDate
-          ? new Date(initialData.CreateDate)
-          : new Date(),
+        CreateDate: createDate,
         Name: initialData.Name || STRING_EMPTY,
         CategoryId: initialData.CategoryId || STRING_EMPTY,
         Description: initialData.Description || STRING_EMPTY,
@@ -129,15 +140,19 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         UrlSlug: initialData.UrlSlug || STRING_EMPTY,
         SellProductUploads: initialData.SellProductUploads || [],
         SellProductCategories: initialData.SellProductCategories || [],
-      });
-      setErrors({});
-      // อัปเดตเนื้อหาใน Tiptap Editor
+      };
+      setFormData(newFormData);
       editor?.commands.setContent(initialData.Description || STRING_EMPTY);
     }
-    console.log("formData", formData);
   }, [initialData, editor]);
 
-  // ฟังก์ชันตรวจสอบข้อมูลด้วย Zod
+  useEffect(() => {
+    const categoryOption = categoryOptions.find(
+      (option) => option.value === formData.CategoryId
+    );
+    setSelectedCategory(categoryOption || null);
+  }, [formData.CategoryId, categories]);
+
   const validateForm = (data: Product) => {
     const result = ProductSchema.safeParse(data);
     if (!result.success) {
@@ -153,20 +168,25 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     return result;
   };
 
-  // จัดการการเปลี่ยนแปลงใน React-Select
   const handleCategoryChange = (selectedOption: any) => {
     const updatedFormData = {
       ...formData,
       CategoryId: selectedOption ? selectedOption.value : STRING_EMPTY,
       SellProductCategories: selectedOption
-        ? [{ CategoryId: selectedOption.value, Name: selectedOption.label }]
+        ? [
+            {
+              CategoryId: selectedOption.value,
+              Name: selectedOption.label || "หมวดหมู่ไม่มีชื่อ", // กำหนดค่า default ถ้า label เป็น undefined
+              CreateDate: new Date(), // เพิ่ม CreateDate เป็น Date object
+            },
+          ]
         : [],
     };
     setFormData(updatedFormData);
+    setSelectedCategory(selectedOption);
     validateForm(updatedFormData);
   };
 
-  // จัดการการเปลี่ยนแปลงใน input
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -181,15 +201,122 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     validateForm(updatedFormData);
   };
 
-  // ฟังก์ชันรีเซ็ตฟอร์ม
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const maxFiles = 8;
+    const maxFileSize = 1 * 1024 * 1024; // 1MB
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
+    const newUploads: any[] = [];
+    const errors: string[] = [];
+
+    const totalFiles = formData.SellProductUploads.length + files.length;
+    if (totalFiles > maxFiles) {
+      errors.push(`สามารถอัปโหลดได้สูงสุด ${maxFiles} รูปเท่านั้น`);
+      setUploadErrors(errors);
+      return;
+    }
+
+    setUploading(true);
+    setUploadErrors([]);
+
+    try {
+      for (const file of Array.from(files)) {
+        if (!allowedTypes.includes(file.type)) {
+          errors.push(
+            `ไฟล์ ${file.name} ไม่ใช่รูปภาพที่รองรับ (JPEG, PNG, GIF เท่านั้น)`
+          );
+          continue;
+        }
+
+        if (file.size > maxFileSize) {
+          errors.push(`ไฟล์ ${file.name} มีขนาดเกิน 1MB`);
+          continue;
+        }
+
+        const uuid = uuidv4().toString().toLowerCase();
+        const extension =
+          file.type === "image/jpeg"
+            ? ".jpg"
+            : file.type === "image/png"
+            ? ".png"
+            : file.type === "image/gif"
+            ? ".gif"
+            : "";
+        const fileName = `${uuid}${extension}`;
+
+        const uploadFormData = new FormData();
+        uploadFormData.append("FileData", file);
+        uploadFormData.append("Categorie", "TempFile");
+        uploadFormData.append("FileName", fileName);
+        uploadFormData.append("FileSize", file.size.toString());
+        uploadFormData.append("MimeType", extension);
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_THA_API_URL}/api/v1/Files/UploadFormFile`,
+          {
+            method: "POST",
+            body: uploadFormData,
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          errors.push(`ไม่สามารถอัปโหลดไฟล์ ${file.name}: ${errorText}`);
+          continue;
+        }
+
+        const result: UploadFormFilesResponse = await response.json();
+        // ตรวจสอบว่า FileId มีค่าหรือไม่ ถ้าไม่มีให้ใช้ UUID
+        const productUploadId = result.FileId || uuidv4();
+        newUploads.push({
+          ProductUploadId: productUploadId,
+          Status: "1", // ต้องเป็น string เสมอ
+          CreateDate: new Date(), // ใช้ Date object
+          ProductId: formData.ProductId || uuidv4(),
+          Url: result.FileUrl || "",
+          OriginalFileName: result.OriginalFileName || file.name,
+          FileName: fileName,
+          ProductVariantId: STRING_EMPTY, // กำหนดเป็น string แทน null
+          IsPrimary: "0", // กำหนดค่า default เป็น string (เช่น "0" สำหรับไม่ใช่ primary)
+        });
+      }
+
+      if (errors.length > 0) {
+        setUploadErrors(errors);
+        showErrorToast({
+          errorMessages: errors.join(", "),
+        });
+      }
+
+      if (newUploads.length > 0) {
+        const updatedFormData = {
+          ...formData,
+          SellProductUploads: [...formData.SellProductUploads, ...newUploads],
+        };
+        setFormData(updatedFormData);
+        validateForm(updatedFormData);
+      }
+    } catch (error) {
+      showErrorToast({
+        errorMessages: `เกิดข้อผิดพลาดในการอัปโหลด: ${error}`,
+      });
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
   const handleReset = () => {
     if (mode === "edit" && initialData) {
+      const createDate = initialData?.CreateDate
+        ? new Date(initialData.CreateDate)
+        : new Date(); // รับรองว่า CreateDate มีค่าเสมอ
       setFormData({
         Status: initialData.Status?.toString() || STRING_EMPTY,
         ProductId: initialData.ProductId || GUID_EMPTY,
-        CreateDate: initialData.CreateDate
-          ? new Date(initialData.CreateDate)
-          : new Date(),
+        CreateDate: createDate,
         Name: initialData.Name || STRING_EMPTY,
         CategoryId: initialData.CategoryId || STRING_EMPTY,
         Description: initialData.Description || STRING_EMPTY,
@@ -203,6 +330,10 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         SellProductCategories: initialData.SellProductCategories || [],
       });
       editor?.commands.setContent(initialData.Description || STRING_EMPTY);
+      const categoryOption = categoryOptions.find(
+        (option) => option.value === initialData.CategoryId
+      );
+      setSelectedCategory(categoryOption || null);
     } else {
       setFormData({
         Status: STRING_EMPTY,
@@ -219,11 +350,12 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         SellProductCategories: [],
       });
       editor?.commands.setContent(STRING_EMPTY);
+      setSelectedCategory(null);
     }
     setErrors({});
+    setUploadErrors([]);
   };
 
-  // ฟังก์ชันลบรูปภาพตาม ProductUploadId
   const removeImage = (productUploadId: string) => {
     const updatedUploads =
       formData.SellProductUploads?.filter(
@@ -237,12 +369,14 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     validateForm(updatedFormData);
   };
 
-  // จัดการการ submit ฟอร์ม
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
 
+    console.log("formData", formData);
     const validation = validateForm(formData);
+
+    console.log("validation", validation);
     if (!validation.success) {
       setIsSubmitting(false);
       return;
@@ -252,7 +386,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
       const path =
         mode === "create"
           ? "api/v1/Sell/CreateProducts"
-          : `api/v1/Sell/UpdateProducts`;
+          : "api/v1/Sell/UpdateProducts";
       const method = mode === "create" ? "POST" : "PUT";
 
       const payload = {
@@ -287,31 +421,57 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     }
   };
 
-  // แปลง categories เป็นรูปแบบที่ React-Select ใช้
   const categoryOptions = categories.map((category) => ({
     value: category.CategoryId,
     label: category.Name || "ไม่มีชื่อ",
   }));
-  // หาค่าเริ่มต้นจาก formData.SellProductCategories
-  const selectedCategory =
-    formData.SellProductCategories?.length > 0
-      ? categoryOptions.find(
-          (option) => option.value === formData.CategoryId
-        ) || null
-      : null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label htmlFor="fileUpload" className="block text-sm font-medium">
+          อัปโหลดรูปสินค้า
+        </label>
+        <input
+          id="fileUpload"
+          type="file"
+          accept="image/jpeg,image/png,image/gif"
+          multiple
+          onChange={handleFileChange}
+          disabled={uploading}
+          className="mt-1 block w-full rounded-md border border-gray-300 p-2"
+        />
+        {uploading && (
+          <div className="mt-2 flex items-center space-x-2">
+            <LoaderCircle className="animate-spin" size={20} />
+            <span>กำลังอัปโหลด...</span>
+          </div>
+        )}
+        {uploadErrors.length > 0 && (
+          <div className="mt-2">
+            {uploadErrors.map((error, index) => (
+              <p key={index} className="text-sm text-red-600">
+                {error}
+              </p>
+            ))}
+          </div>
+        )}
+        <p className="mt-1 text-sm text-gray-500">
+          รองรับไฟล์ JPEG, PNG, GIF ขนาดไม่เกิน 1MB ต่อไฟล์ สูงสุด 8 รูป
+        </p>
+      </div>
       <div>
         <label htmlFor="Name" className="block text-sm font-medium">
           รูปสินค้า
         </label>
         {formData.SellProductUploads &&
         formData.SellProductUploads.length > 0 ? (
-          formData.SellProductUploads?.map((upload) =>
-            upload.Url ? (
+          formData.SellProductUploads.filter(
+            (upload) => upload.Url && upload.ProductUploadId
+          ) // กรองเฉพาะที่มี Url และ ProductUploadId
+            .map((upload, index) => (
               <div
-                key={upload.ProductUploadId}
+                key={upload.ProductUploadId || `upload-${index}`} // ใช้ index เป็น key สำรอง
                 className="mt-2 inline-block mr-6"
               >
                 <img
@@ -324,19 +484,18 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                   onClick={() => removeImage(upload.ProductUploadId)}
                   className="mt-1 bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700"
                 >
-                  RemoveImage
+                  ลบรูปภาพ
                 </button>
               </div>
-            ) : null
-          )
-            .reduce((rows, item, index) => {
+            ))
+            .reduce((rows: any[], item, index) => {
               const rowIndex = Math.floor(index / 4);
               if (!rows[rowIndex]) rows[rowIndex] = [];
               rows[rowIndex].push(item);
               return rows;
             }, [])
             .map((row, rowIndex) => (
-              <div key={rowIndex} className="flex flex-wrap mb-6">
+              <div key={`row-${rowIndex}`} className="flex flex-wrap mb-6">
                 {row}
               </div>
             ))
@@ -364,18 +523,25 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         <label htmlFor="CategoryId" className="block text-sm font-medium">
           หมวดหมู่
         </label>
-        <Select
-          id="CategoryId"
-          name="CategoryId"
-          options={categoryOptions}
-          value={selectedCategory}
-          onChange={handleCategoryChange}
-          isLoading={isLoadingCategories}
-          placeholder="เลือกหมวดหมู่"
-          className="mt-1  block w-full md:max-w-lg"
-          classNamePrefix="react-select"
-          isClearable
-        />
+        {isMounted ? (
+          <Select
+            instanceId="category-select"
+            id="CategoryId"
+            name="CategoryId"
+            options={categoryOptions}
+            value={selectedCategory}
+            onChange={handleCategoryChange}
+            isLoading={isLoadingCategories}
+            placeholder="เลือกหมวดหมู่"
+            className="mt-1 block w-full md:max-w-lg"
+            classNamePrefix="react-select"
+            isClearable
+          />
+        ) : (
+          <div className="mt-1 block w-full md:max-w-lg h-10 rounded-md border border-gray-300 p-2 bg-gray-100">
+            กำลังโหลดหมวดหมู่...
+          </div>
+        )}
         {errors.CategoryId && (
           <p className="mt-1 text-sm text-red-600">{errors.CategoryId}</p>
         )}
@@ -445,7 +611,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
           name="VisibilityLevel"
           value={formData.VisibilityLevel}
           onChange={handleChange}
-          className="mt-1 block w-full md:max-w-lg px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 "
+          className="mt-1 block w-full md:max-w-lg px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
         >
           <option value="">เลือก</option>
           <option value="1">ทั้งหมด</option>
