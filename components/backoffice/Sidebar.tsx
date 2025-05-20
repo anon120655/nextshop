@@ -103,6 +103,14 @@ export default function Sidebar() {
         </nav>
       </div>
       <div className="mt-20">
+        <Link
+          href="/"
+          className="block w-full p-2 bg-green-700 text-white rounded-md text-center"
+        >
+          Frontend
+        </Link>
+      </div>
+      <div className="mt-10">
         {user && <p className="text-sm mb-4">Welcome, {user.fullName}</p>}
         {token && (
           <button
